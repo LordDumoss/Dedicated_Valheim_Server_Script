@@ -12,13 +12,12 @@
 ####
 ###############################################################################################
 ####
-#### Base File name: njordmenu.sh 
-####   This version: ldadvnjordmenu2.sh 
+####  Forked from: njordmenu.sh 4.0Thor
+#### This version: ldadvnjordmenu2.sh 
+####  Modified by: Lord Du'Moss
+####      Updated: 18-SEPT-2026
 ####
 ###############################################################################################
-####
-#### Modifier: Lord/Ranger(Dumoss)
-#### Forked from: njordmenu.sh (beta) Updated: 29-APR-2021
 ####
 #### I would like to thank Zerobandwidth and the development team 
 #### this wonderfull script. :)
@@ -31,16 +30,16 @@
 ####   Example: /home/steam/valheimserver/SomeValheimWorldName
 ####
 #### LD VERSION: 2.2.5B
-####   Fixed: all rpm manager sections to work on all Linux flavors.
-####   Fixed: steam download for all Linux flavors.
-####   Fixed: bepinex download issues due to Thunderstore URL changes. 
-####          Should now always find and download the latest version.
-####  Update: bepinex added new parameters. create startup script function updated.
-####   Fixed: bepinex startup create script to run on all Linux flavors.
-#### Removed: All ValheimPlus code. As this system is no longer supported.
-####   Added: Back the rename world code. Use with care.
-####    Beta: Finished the Firewall controls complete. 
-####          See "FIREWALL CONFIGURATION" section.
+####      Fixed: all rpm manager sections to work on all Linux flavors.
+####      Fixed: steam download for all Linux flavors.
+####      Fixed: bepinex download issues due to Thunderstore URL changes. 
+####             Should now always find and download the latest version.
+####     Update: bepinex added new parameters. create startup script function updated.
+####      Fixed: bepinex startup create script to run on all Linux flavors.
+####    Removed: All ValheimPlus code. As this system is no longer supported.
+####      Added: Back the rename world code. Use with care.
+####       Beta: Finished the Firewall controls complete. 
+####             See "FIREWALL CONFIGURATION" section.
 ####
 #### *** - Lord Du'Moss
 ####
