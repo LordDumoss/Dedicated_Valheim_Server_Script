@@ -33,13 +33,14 @@
 ####      Fixed: all rpm manager sections to work on all Linux flavors.
 ####      Fixed: steam download for all Linux flavors.
 ####      Fixed: bepinex download issues due to Thunderstore URL changes. 
-####             Should now always find and download the latest version.
-####     Update: bepinex added new parameters. create startup script function updated.
-####      Fixed: bepinex startup create script to run on all Linux flavors.
-####    Removed: All ValheimPlus code. As this system is no longer supported.
-####      Added: Back the rename world code. Use with care.
-####       Beta: Finished the Firewall controls complete. 
-####             See "FIREWALL CONFIGURATION" section.
+####        ...: Should now always find and download the latest version.
+####    Updated: The Bepinex create startup script function.
+####        .U1: Added the new bepinex parameters to startup. 
+####        .U2: Fixed to run on all Linux flavors.
+####    Removed: All ValheimPlus code, as this system is no longer maintained.
+####      Added: Back the rename world function. Use with care.
+####       Beta: Finished the Firewall controls. 
+####        ...: See "FIREWALL CONFIGURATION" section.
 ####
 #### *** - Lord Du'Moss
 ####
