@@ -20,7 +20,7 @@
 ###############################################################################################
 ####
 #### I would like to thank Zerobandwidth and the development team
-#### for this wonderfull script. :)
+#### this wonderfull script. :)
 ####
 #### Please use the same discord for issues.
 ####
@@ -45,7 +45,8 @@
 ####
 #### LD VERSION: 2.2.6B -- Comments
 #### LD VERSION: 2.2.7B -- minor menu format fixes.
-#### LD VERSION: 2.2.8B -- minor bugs
+#### LD VERSION: 2.2.8B -- minor bugs fixes
+#### LD VERSION: 2.2.9B -- enhancements
 ####
 #### *** - Lord Du'Moss
 ####
@@ -63,7 +64,28 @@ then
 else
 	LANGUAGE=$1
 fi
-source lang/$LANGUAGE.conf
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# Consume the first argument only when it is a supported language.
+case "${1:-}" in
+    DA|DE|DU|EN|FR|RO|RU|SE|SP)
+        LANGUAGE="$1"
+        shift
+        ;;
+    *)
+        LANGUAGE="EN"
+        ;;
+esac
+
+LANGUAGE_CONFIG="${SCRIPT_DIR}/lang/${LANGUAGE}.conf"
+
+if [[ ! -r "$LANGUAGE_CONFIG" ]]; then
+    printf 'Error: language configuration not found: %s\n' "$LANGUAGE_CONFIG" >&2
+    exit 1
+fi
+
+source "$LANGUAGE_CONFIG"
+
 ###############################################################
 ########################  Santiy Check  #######################
 ###############################################################
@@ -125,7 +147,7 @@ debugmsg="n"
 # Set Menu Version for menu display
 ###############################################################
 mversion="4.0-Thor"
-ldversion="2.2.6B"
+ldversion="2.2.9B"
 ########################################################################
 #############################Set COLOR VARS#############################
 ########################################################################
@@ -180,16 +202,28 @@ ColorWhite(){
 # Track the current script path and git state for update checks.
 MENUSCRIPT="$(readlink -f "$0")"
 SCRIPTFILE="$(basename "$MENUSCRIPT")"
-SCRIPTPATH="$(dirname "$SCRIPT")"
+#SCRIPTPATH="$(dirname "$SCRIPT")"
+SCRIPTPATH="$(dirname "$MENUSCRIPT")"
 SCRIPTNAME="$0"
 ARGS=( "$@" )
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name @{upstream})
+#BRANCH=$(git rev-parse --abbrev-ref HEAD)
+#UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name @{upstream})
+BRANCH=""
+UPSTREAM=""
+if git -C "$SCRIPTPATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    BRANCH=$(git -C "$SCRIPTPATH" rev-parse --abbrev-ref HEAD)
+    UPSTREAM=$(git -C "$SCRIPTPATH" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
+fi
 
 # Check for script updates from the upstream git branch.
 function script_check_update() {
+    if [ -z "$BRANCH" ] || [ -z "$UPSTREAM" ]; then
+        echo "Script update check unavailable: no Git upstream is configured."
+        return 0
+    fi
     echo "1"
-    git fetch
+    #git fetch
+	git -C "$SCRIPTPATH" fetch
 
     # Check if there are updates available.
     if [ -n "$(git diff --name-only "$UPSTREAM" "$SCRIPTFILE")" ]; then
@@ -536,7 +570,8 @@ function valheim_server_install() {
         case "${fwbeingused}" in
             ufw)
                 if command -v ufw >/dev/null; then
-                    sudo ufw allow ${portnumber}:${port_max}/udp
+                    #sudo ufw allow ${portnumber}:${port_max}/udp
+					sudo ufw allow "${portnumber}:${port_max}/udp"
                     echo "Adding ports ${portnumber}:${port_max}/udp to the UFW system."
                 fi
                 ;;
@@ -724,7 +759,13 @@ function linux_server_update() {
     elif command -v dnf >/dev/null || command -v yum >/dev/null; then
         if [[ "$ID" == "fedora" ]] || [[ "$ID" =~ ^(centos|ol|rhel|rocky|almalinux)$ ]]; then
             # Safe universal package names across Red Hat extensions
-            sudo ${cat_pkg_mgr:-dnf} install -y glibc.i686 libstdc++.i686 git mlocate net-tools unzip curl lsof
+            #sudo ${cat_pkg_mgr:-dnf} install -y glibc.i686 libstdc++.i686 git mlocate net-tools unzip curl lsof
+			if command -v dnf >/dev/null; then
+				rpm_pkg_mgr=dnf
+            else
+				rpm_pkg_mgr=yum
+            fi
+			sudo "$rpm_pkg_mgr" install -y glibc.i686 libstdc++.i686 git mlocate net-tools unzip curl lsof
         else
             echo "Unsupported RPM-based flavor."
         fi
@@ -765,7 +806,7 @@ function linux_server_update() {
             sudo yum-config-manager --add-repo=https://negativo17.org
         else
             # Configure repositories for newer enterprise systems.
-            sudo dnf install -y https://fedoraproject.org{VERSION:0:1}.noarch.rpm
+            sudo dnf install -y https://fedoraproject.org/${VERSION:0:1}.noarch.rpm
             sudo dnf config-manager --add-repo=https://negativo17.org
         fi
     else
@@ -810,10 +851,15 @@ function Install_steamcmd_client() {
         echo steam steam/question select 'I AGREE' | sudo debconf-set-selections
         sudo apt install -y steamcmd libsdl2-2.0-0 libsdl2-2.0-0:i386
         tput setaf 2; echo "$ECHO_DONE"; tput setaf 9;
-    elif command -v yum >/dev/null; then
+    elif command -v dnf >/dev/null || command -v yum >/dev/null; then
 	    # Install Steam packages where available on RPM-based systems.
+		if command -v dnf >/dev/null; then
+			rpm_pkg_mgr=dnf
+		else
+			rpm_pkg_mgr=yum
+		fi
         if [[ "$ID" == "fedora" ]] || [[ "$ID" =~ ^(centos|ol|rhel)$ && "${VERSION:0:1}" == "8" ]]; then
-            sudo dnf -y install steam kernel-modules-extra
+            sudo "$rpm_pkg_mgr" -y install steam kernel-modules-extra
         elif [[ "$ID" =~ ^(centos|ol|rhel)$ && "${VERSION:0:1}" == "7" ]]; then
             sudo yum -y install steam
         else
@@ -853,7 +899,8 @@ function Install_steamcmd_client() {
                 ;;
             firewalld)
                 if command -v firewall-cmd >/dev/null; then
-                    if [ "$is_firewall_enabled" == "y" ] && [ "$get_firewall_status" == "y" ]; then
+                    #if [ "$is_firewall_enabled" == "y" ] && [ "$get_firewall_status" == "y" ]; then
+                    if systemctl is-enabled --quiet firewalld && systemctl is-active --quiet firewalld; then
                         sftc="ste"
                         add_Valheim_server_public_ports
                     fi
@@ -931,7 +978,9 @@ function backup_world_data() {
 
         # Archive the world save directory.
         tput setaf 1; echo "$BACKUP_WORLD_MAKING_TAR"; tput setaf 9;
-        tar czf "$backupPath/$worldname/valheim-backup-$TODAY.tgz" "$worldpath/$worldname/"*
+        #tar czf "$backupPath/$worldname/valheim-backup-$TODAY.tgz" "$worldpath/$worldname/"*
+		tar -C "$worldpath/$worldname" \
+			-czf "$backupPath/$worldname/valheim-backup-$TODAY.tgz" .		
         tput setaf 2; echo "$BACKUP_WORLD_MAKING_TAR_COMPLETE"; tput setaf 9;
         sleep 1
 
@@ -959,9 +1008,17 @@ function restore_world_data() {
     declare -a backups
 
     # Load available backups into the selection array.
-    for file in "${backupPath}/${worldname}"/*.tgz; do
+    #for file in "${backupPath}/${worldname}"/*.tgz; do
+    #    backups+=("$file")
+    while IFS= read -r -d '' file; do
         backups+=("$file")
-    done
+    done < <(find "${backupPath}/${worldname}" -maxdepth 1 -type f \
+        -name '*.tgz' -print0 2>/dev/null)
+
+    if [ "${#backups[@]}" -eq 0 ]; then
+        echo "No backups are available for ${worldname}."
+        return 1	
+    fi
 
     # Display the available backup files.
     bIndex=1
@@ -975,8 +1032,14 @@ function restore_world_data() {
     tput setaf 2; echo "$RESTORE_WORLD_DATA_HEADER"; tput setaf 9;
     tput setaf 2; echo "$RESTORE_WORLD_DATA_CONFIRM"; tput setaf 9;
     read -p "$RESTORE_WORLD_DATA_SELECTION" selectedIndex
-
-    # Confirm the selected backup before restoring it.
+	# Confirm the selected backup before restoring it.
+	if ! [[ "$selectedIndex" =~ ^[0-9]+$ ]] ||
+		[ "$selectedIndex" -lt 1 ] ||
+		[ "$selectedIndex" -gt "${#backups[@]}" ]; then
+		echo "Invalid backup selection."
+		return 1
+	fi
+   
     restorefile=$(basename "${backups[selectedIndex - 1]}")
     echo -ne "
 $(ColorRed '------------------------------------------------------------')
@@ -1003,7 +1066,9 @@ $(ColorGreen ' '"$RESTORE_WORLD_DATA_CONFIRM_1"' ') "
 
         # Extract the backup and restore file ownership.
         tput setaf 2; echo "$RESTORE_WORLD_DATA_UNPACKING ${worldpath}/${restorefile}"; tput setaf 9;
-        tar xzf "${worldpath}/${worldname}/${restorefile}" --strip-components=7 --directory "${worldpath}/${worldname}/"
+        #tar xzf "${worldpath}/${worldname}/${restorefile}" --strip-components=7 --directory "${worldpath}/${worldname}/"
+		tar -xzf "${worldpath}/${worldname}/${restorefile}" \
+			-C "${worldpath}/${worldname}/"		
         chown -Rf steam:steam "${worldpath}/${worldname}/"
         rm "${worldpath}/${worldname}"/*.tgz
 
@@ -1063,7 +1128,7 @@ $(ColorRed "$DRAW60")"
     fi
 }
 
- Compare the official and local Valheim build identifiers.
+# Compare the official and local Valheim build identifiers.
 function check_apply_server_updates_beta() {
 	### beta function
     echo ""
@@ -1287,7 +1352,8 @@ function display_network_info() {
 function display_player_history() {
     echo ""
     grep ZDOID ${worldpath}/${worldname}/valheim_server.log
-    grep *HAND* ${worldpath}/${worldname}/valheim_server.log
+    #grep *HAND* ${worldpath}/${worldname}/valheim_server.log
+	grep -F -- '*HAND*' "${worldpath}/${worldname}/valheim_server.log"
     echo ""
     echo "Returning to menu in 5 Seconds"
     sleep 5
@@ -1516,7 +1582,16 @@ function add_Valheim_server_public_ports(){
         if [ "${fwbeingused}" == "firewalld" ] ; then
             if [ "$sftc" == "ste" ] ; then
                 echo "Injecting SteamCMD Network Rules into Firewalld Zone Profiles..."
-                sudo firewall-cmd --zone=public --permanent --add-port={1200/udp,27000-27015/udp,27020/udp,27015-27016/tcp,27030-27039/tcp}
+                #sudo firewall-cmd --zone=public --permanent --add-port={1200/udp,27000-27015/udp,27020/udp,27015-27016/tcp,27030-27039/tcp}
+				for port_rule in \
+					1200/udp \
+					27000-27015/udp \
+					27020/udp \
+					27015-27016/tcp \
+					27030-27039/tcp; do
+					sudo firewall-cmd --zone=public --permanent --add-port="$port_rule"
+				done				
+				
             elif [ "$sftc" == "val" ] ; then
                 echo "Injecting Valheim [${worldname}] Base Port Rules (${target_port}-${port_max}/udp) into Firewalld..."
                 sudo firewall-cmd --zone=public --permanent --add-port=${target_port}-${port_max}/udp
@@ -1553,7 +1628,15 @@ function remove_Valheim_server_public_ports(){
         if [ "${fwbeingused}" == "firewalld" ] ; then
             if [ "$sftc" == "ste" ] ; then
                 echo "Purging SteamCMD Rules from Firewalld Zone Profiles..."
-                sudo firewall-cmd --zone=public --permanent --remove-port={1200/udp,27000-27015/udp,27020/udp,27015-27016/tcp,27030-27039/tcp}
+                #sudo firewall-cmd --zone=public --permanent --remove-port={1200/udp,27000-27015/udp,27020/udp,27015-27016/tcp,27030-27039/tcp}
+				for port_rule in \
+					1200/udp \
+					27000-27015/udp \
+					27020/udp \
+					27015-27016/tcp \
+					27030-27039/tcp; do
+					sudo firewall-cmd --zone=public --permanent --remove-port="$port_rule"
+				done	
             elif [ "$sftc" == "val" ] ; then
                 echo "Purging Valheim [${worldname}] Ports (${target_port}-${port_max}/udp) from Firewalld..."
                 sudo firewall-cmd --zone=public --permanent --remove-port=${target_port}-${port_max}/udp
@@ -1839,68 +1922,235 @@ function change_default_server_port() {
     fi
 }
 
-# Rename the active world and migrate its save files.
+# Rename the active world and migrate its installation, save files, and service.
 function change_local_world_name() {
     echo ""
-    tput setaf 3; echo "$FUNCTION_CHANGE_LOCAL_WORLD_NAME_MSG"; tput sgr0;
-    tput setaf 1; echo "WARNING: Advanced Users only! Altering session names incorrectly will cause data decoupling."; tput sgr0;
+    tput setaf 3
+    echo "$FUNCTION_CHANGE_LOCAL_WORLD_NAME_MSG"
+    tput sgr0
+
+    tput setaf 1
+    echo "WARNING: Advanced Users only! Make sure you have a current backup."
+    echo "The server will be stopped while the world is migrated."
+    tput sgr0
     echo ""
 
     get_current_config
     print_current_config
     set_config_defaults
 
-    while true; do
-        tput setaf 2; echo "$DRAW60" ; tput sgr0;
-        read -p "$WORLD_SET_WORLD_NAME_VAR: " setCurrentWorldName
-        tput setaf 2; echo "------------------------------------------------------------" ; tput sgr0;
+    local old_world_name="$worldname"
+    local old_install_dir="${valheimInstallPath}/${old_world_name}"
+    local old_save_dir="${worldpath}/${old_world_name}"
+    local old_service="valheimserver_${old_world_name}.service"
 
-        # Validate the replacement world name.
-		if [[ ${#setCurrentWorldName} -ge 4 && "$setCurrentWorldName" =~ ^[[:alnum:]]+$ ]]; then
-            break
-        else
-            tput setaf 2; echo "$WORLD_SET_ERROR" ; tput sgr0;
+    local new_world_name
+    local new_install_dir
+    local new_save_dir
+    local new_service
+    local old_startup_script
+    local new_startup_script
+    local worldlist_tmp
+    local mod_mode="1"
+
+    while true; do
+        tput setaf 2
+        echo "$DRAW60"
+        tput sgr0
+
+        read -r -p "$WORLD_SET_WORLD_NAME_VAR: " new_world_name
+
+        tput setaf 2
+        echo "------------------------------------------------------------"
+        tput sgr0
+
+        if [[ "$new_world_name" == "$old_world_name" ]]; then
+            echo "The new world name must be different from the current world name."
+            continue
         fi
+
+        if [[ ${#new_world_name} -ge 4 &&
+              "$new_world_name" =~ ^[[:alnum:]]+$ ]]; then
+            break
+        fi
+
+        tput setaf 2
+        echo "$WORLD_SET_ERROR"
+        tput sgr0
     done
 
-    read -p "$PLEASE_CONFIRM (y/n): " confirmChangeWorldName
+    new_install_dir="${valheimInstallPath}/${new_world_name}"
+    new_save_dir="${worldpath}/${new_world_name}"
+    new_service="valheimserver_${new_world_name}.service"
 
-    if [ "$confirmChangeWorldName" == "y" ]; then
-        echo "Stopping active service tracking thread..."
-        sudo systemctl stop valheimserver_${worldname}.service 2>/dev/null
+    old_startup_script="${old_install_dir}/start_valheim_${old_world_name}.sh"
+    new_startup_script="${new_install_dir}/start_valheim_${new_world_name}.sh"
 
-        # Copy the database and world definition under the new name.
-		local old_save_dir="${worldpath}/${worldname}/worlds_local"
-        if [ -d "$old_save_dir" ]; then
-            [ -f "${old_save_dir}/${worldname}.db" ] && cp "${old_save_dir}/${worldname}.db" "${old_save_dir}/${setCurrentWorldName}.db"
-            [ -f "${old_save_dir}/${worldname}.fwl" ] && cp "${old_save_dir}/${worldname}.fwl" "${old_save_dir}/${setCurrentWorldName}.fwl"
-        fi
+    if [ ! -d "$old_install_dir" ]; then
+        echo "Installation directory does not exist:"
+        echo "  $old_install_dir"
+        return 1
+    fi
 
-        # Update the tracked world list.
-		if [ -f "$worldfilelist" ]; then
-            sed -i "s/^${worldname}$/${setCurrentWorldName}/g" "$worldfilelist"
-        fi
+    if [ ! -d "$old_save_dir" ]; then
+        echo "Save directory does not exist:"
+        echo "  $old_save_dir"
+        return 1
+    fi
 
-        # Remove the old service definition.
-		sudo systemctl disable valheimserver_${worldname}.service 2>/dev/null
-        sudo rm -f /lib/systemd/system/valheimserver_${worldname}.service
-        sudo rm -f /etc/systemd/system/multi-user.target.wants/valheimserver_${worldname}.service
+    if [ -e "$new_install_dir" ]; then
+        echo "The destination installation directory already exists:"
+        echo "  $new_install_dir"
+        return 1
+    fi
 
-        worldname="$setCurrentWorldName"
-        setCurrentWorldName="$setCurrentWorldName"
+    if [ -e "$new_save_dir" ]; then
+        echo "The destination save directory already exists:"
+        echo "  $new_save_dir"
+        return 1
+    fi
 
-        valheimVanilla="1"
-        set_valheim_server_vanillaOrBepinex_operations
+    read -r -p "$PLEASE_CONFIRM (y/n): " confirmChangeWorldName
 
-        tput setaf 2; echo "Session migration successfully completed!"; tput sgr0;
-        sleep 3
-        clear
-    else
+    if [[ ! "$confirmChangeWorldName" =~ ^[Yy]$ ]]; then
         echo "$FUNCTION_CHANGE_SERVER_WORLD_NAME_CANCEL"
         sleep 3
         clear
+        return 0
     fi
+
+    # Detect whether the existing service uses BepInEx.
+    if [ -f "/lib/systemd/system/${old_service}" ]; then
+        if grep -Fq \
+            "ExecStart=${old_install_dir}/start_valw_bepinex.sh" \
+            "/lib/systemd/system/${old_service}"; then
+            mod_mode="2"
+        elif grep -Fq \
+            "ExecStart=${old_install_dir}/start_server_bepinex.sh" \
+            "/lib/systemd/system/${old_service}"; then
+            mod_mode="2"
+        fi
+    fi
+
+    echo "Stopping service: ${old_service}"
+    if ! systemctl stop "$old_service"; then
+        echo "Unable to stop ${old_service}. Rename cancelled."
+        return 1
+    fi
+
+    # Move the complete save directory, not only the .db and .fwl files.
+    echo "Moving save directory:"
+    echo "  $old_save_dir"
+    echo "  -> $new_save_dir"
+
+    if ! mv -- "$old_save_dir" "$new_save_dir"; then
+        echo "Unable to move the save directory. Rename cancelled."
+        return 1
+    fi
+
+    # Move the complete Valheim installation directory.
+    echo "Moving installation directory:"
+    echo "  $old_install_dir"
+    echo "  -> $new_install_dir"
+
+    if ! mv -- "$old_install_dir" "$new_install_dir"; then
+        echo "Unable to move the installation directory."
+
+        # Attempt to restore the save directory if the installation move fails.
+        mv -- "$new_save_dir" "$old_save_dir" 2>/dev/null
+
+        echo "Rename cancelled."
+        return 1
+    fi
+
+    # Rename the world-specific startup script.
+    old_startup_script="${new_install_dir}/start_valheim_${old_world_name}.sh"
+    new_startup_script="${new_install_dir}/start_valheim_${new_world_name}.sh"
+
+    if [ -f "$old_startup_script" ]; then
+        if ! mv -- "$old_startup_script" "$new_startup_script"; then
+            echo "Unable to rename the startup script."
+            return 1
+        fi
+    fi
+
+    # Update world and save-directory arguments in the startup script.
+    if [ -f "$new_startup_script" ]; then
+        sed -i \
+            -e "s/-world \"${old_world_name}\"/-world \"${new_world_name}\"/g" \
+            -e "s|-savedir \"${old_save_dir}\"|-savedir \"${new_save_dir}\"|g" \
+            "$new_startup_script"
+
+        chmod +x "$new_startup_script"
+        chown steam:steam "$new_startup_script"
+    else
+        echo "Warning: startup script was not found:"
+        echo "  $new_startup_script"
+    fi
+
+    # Update the tracked world list safely.
+    if [ -f "$worldfilelist" ]; then
+        worldlist_tmp="$(mktemp)"
+
+        if ! awk -v old="$old_world_name" -v new="$new_world_name" '
+            $0 == old { print new; next }
+            { print }
+        ' "$worldfilelist" > "$worldlist_tmp"; then
+            rm -f -- "$worldlist_tmp"
+            echo "Unable to update $worldfilelist."
+            return 1
+        fi
+
+        if ! mv -- "$worldlist_tmp" "$worldfilelist"; then
+            echo "Unable to replace $worldfilelist."
+            rm -f -- "$worldlist_tmp"
+            return 1
+        fi
+
+        chown steam:steam "$worldfilelist"
+    fi
+
+    # Remove the old service and old enablement symlink.
+    systemctl disable "$old_service" 2>/dev/null || true
+    rm -f -- "/lib/systemd/system/${old_service}"
+    rm -f -- "/etc/systemd/system/${old_service}"
+    rm -f -- "/etc/systemd/system/multi-user.target.wants/${old_service}"
+
+    # Update the active script state before rebuilding the service.
+    worldname="$new_world_name"
+    setCurrentWorldName="$new_world_name"
+    setCurrentSaveDir="$new_save_dir"
+    valheimVanilla="$mod_mode"
+
+    chown -Rf steam:steam "$new_install_dir" "$new_save_dir"
+
+    # Rebuild the startup configuration and the systemd service.
+    set_valheim_server_vanillaOrBepinex_operations
+
+    if ! systemctl is-enabled "${new_service}" >/dev/null 2>&1; then
+        echo "Warning: ${new_service} was not enabled successfully."
+    fi
+
+    if ! systemctl is-active --quiet "${new_service}"; then
+        echo "Warning: ${new_service} is not currently active."
+        systemctl status --no-pager "${new_service}" || true
+    fi
+
+    tput setaf 2
+    echo "World rename and migration completed successfully."
+    echo "Old world: $old_world_name"
+    echo "New world: $new_world_name"
+    echo "New save path: $new_save_dir"
+    echo "New install path: $new_install_dir"
+    tput sgr0
+
+    sleep 3
+    clear
 }
+
+
+
+
 
 # Change the server access password.
 function change_server_access_password() {
@@ -2157,7 +2407,8 @@ StartLimitInterval=60s
 StartLimitBurst=3
 User=steam
 Group=steam
-ExecStartPre=/home/steam/steamcmd/linux32/steamcmd +login anonymous +force_install_dir ${valheimInstallPath}/${worldname} +app_update 896660 validate +exit
+#ExecStartPre=/home/steam/steamcmd/linux32/steamcmd +login anonymous +force_install_dir ${valheimInstallPath}/${worldname} +app_update 896660 validate +exit
+ExecStartPre=${steamexe} +login anonymous +force_install_dir ${valheimInstallPath}/${worldname} +app_update 896660 validate +exit
 EOF
 
     # 3. Dynamic execution handoff checking
@@ -2386,7 +2637,8 @@ if command -v apt-get >/dev/null; then
    export VALHEIM_BEP_PATH="$(dirname "$VALHEIM_BEP_SCRIPT")"
    worldname=$(pwd | cut -d'/' -f5)
 elif command -v dnf >/dev/null || command -v yum >/dev/null; then
-   export VALHEIM_BEP_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   #export VALHEIM_BEP_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   export VALHEIM_BEP_PATH="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
    export VALHEIM_BEP_SCRIPT="${VALHEIM_BEP_PATH}/start_valw_bepinex.sh"
    worldname="$(basename "${VALHEIM_BEP_PATH}")"
 else
@@ -2546,7 +2798,8 @@ StartLimitInterval=60s
 StartLimitBurst=3
 User=steam
 Group=steam
-ExecStartPre=/home/steam/steamcmd/linux32/steamcmd +login anonymous +force_install_dir ${valheimInstallPath}/${worldname} +app_update 896660 validate +exit
+#ExecStartPre=/home/steam/steamcmd/linux32/steamcmd +login anonymous +force_install_dir ${valheimInstallPath}/${worldname} +app_update 896660 validate +exit
+ExecStartPre=${steamexe} +login anonymous +force_install_dir ${valheimInstallPath}/${worldname} +app_update 896660 validate +exit
 ExecStart=${valheimInstallPath}/${worldname}/start_valheim_${worldname}.sh
 ExecReload=/bin/kill -s HUP \$MAINPID
 KillSignal=SIGINT
@@ -2628,8 +2881,36 @@ localValheimAppmanifest=${valheimInstallPath}/${worldname}/steamapps/appmanifest
 
 # Check the upstream menu release reported by GitHub.
 function check_menu_script_repo() {
-latestScript=$(curl --connect-timeout 5 -s https://api.github.com/repos/Nimdy/Dedicated_Valheim_Server_Script/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-echo $latestScript
+    local owner="Nimdy"
+    local fork="LordDumoss"
+    local repo="Dedicated_Valheim_Server_Script"
+
+    local api_url="https://api.github.com/repos/${owner}/${repo}/releases/latest"
+    local api_ld_url="https://raw.githubusercontent.com/${fork}/${repo}/main/rebirth/ldadvnjordmenu2.sh"
+
+    local latestOwnerScript=""
+    local latestForkScript=""
+    local latestScript=""
+
+    latestOwnerScript=$(
+        curl --fail --silent --show-error --location \
+            --connect-timeout 5 \
+            "$api_url" 2>/dev/null |
+        sed -nE 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' |
+        head -n 1
+    ) || latestOwnerScript="unknown"
+
+    latestForkScript=$(
+        curl --fail --silent --show-error --location \
+            --connect-timeout 5 \
+            "$api_ld_url" 2>/dev/null |
+        sed -nE 's/^[[:space:]]*ldversion[[:space:]]*=[[:space:]]*["'"'"']?([^"'"'"'[:space:]]+)["'"'"']?.*$/\1/p' |
+        head -n 1
+    ) || latestForkScript="unknown"
+
+    latestScript="${latestOwnerScript}-LD-${latestForkScript}"
+
+    printf '%s\n' "$latestScript"
 }
 
 # Display whether the selected server is publicly listed.
@@ -2960,8 +3241,7 @@ $(ColorOrange '║') $FUNCTION_HEADER_MENU_INFO_SERVER_UFW_SUBSTATE -- substatus
 $(ColorOrange '╠═══════════════════════════════════════════════════════════')"
 	echo -ne "
 $(ColorOrange '║') $FUNCTION_HEADER_MENU_INFO_CURRENT_NJORD_RELEASE $(ColorGreen ''"$(check_menu_script_repo)"'')
-$(ColorOrange '║') $FUNCTION_HEADER_MENU_INFO_LOCAL_NJORD_VERSION $(ColorGreen ''"${mversion}"'')
-$(ColorOrange '║') LD Version: $(ColorGreen ''"${ldversion}"'')
+$(ColorOrange '║') $FUNCTION_HEADER_MENU_INFO_LOCAL_NJORD_VERSION $(ColorGreen ''"${mversion}-LD-${ldversion}"'')
 $(ColorOrange '║ '"$FUNCTION_HEADER_MENU_INFO"'')
 $(ColorOrange '║ '"$FUNCTION_HEADER_MENU_INFO_1"'')
 $(ColorOrange '║ '"$FUNCTION_HEADER_MENU_INFO_2"'')
