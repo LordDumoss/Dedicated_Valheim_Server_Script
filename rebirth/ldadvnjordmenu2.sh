@@ -45,6 +45,8 @@
 ####
 #### LD VERSION: 2.2.6B
 ####    Updated: Comments
+#### LD VERSION: 2.2.7B
+####    Updated: minor menu format fixes.
 ####
 #### *** - Lord Du'Moss
 ####
@@ -124,7 +126,7 @@ debugmsg="n"
 # Set Menu Version for menu display
 ###############################################################
 mversion="4.0-Thor"
-ldversion="2.2.6B"
+ldversion="2.2.7B"
 ########################################################################
 #############################Set COLOR VARS#############################
 ########################################################################
@@ -2855,6 +2857,7 @@ echo $var
 # NJORD Headers
 # Display the legacy ValheimPlus-style information header.
 function menu_header_vplus_enable() {
+clear
 get_current_config
 echo -ne "
 $(ColorPurple '╔════════════════════')$(ColorOrange 'Valheim+')$(ColorPurple '═══════════════════╗')
@@ -2886,13 +2889,13 @@ $(ColorPurple '║')" $(display_public_IP)
 echo -ne "
 $(ColorPurple '║')" $(display_local_IP)
 echo -ne "
-$(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_SERVER_PORT " $(ColorGreen ''"${mversion}"'')
+$(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_SERVER_PORT " $(ColorGreen ''"${currentPort}"'')
 echo -ne "
 $(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_PUBLIC_LIST " $(display_public_status_on_or_off)
 echo -ne "
 $(ColorPurple '╠═══════════════════════════════════════════════')
 $(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_CURRENT_NJORD_RELEASE $(check_menu_script_repo)
-$(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_LOCAL_NJORD_VERSION ${mversion}
+$(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_LOCAL_NJORD_VERSION $(ColorGreen ''"${mversion}"'')
 $(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_GG_ZEROBANDWIDTH
 $(ColorPurple '║') $FUNCTION_HEADER_MENU_INFO_1
 $(ColorPurple '╚═══════════════════════════════════════════════')"
@@ -2900,6 +2903,7 @@ $(ColorPurple '╚════════════════════�
 
 # Display the BepInEx information header.
 function menu_header_bepinex_enable() {
+clear
 get_current_config
 echo -ne "
 $(ColorCyan '╔═════════════════════')$(ColorOrange 'BepInEx')$(ColorCyan '═══════════════════╗')
@@ -2931,13 +2935,13 @@ $(ColorCyan '║')" $(display_public_IP)
 echo -ne "
 $(ColorCyan '║')" $(display_local_IP)
 echo -ne "
-$(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_SERVER_PORT " $(ColorGreen ''"${mversion}"'')
+$(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_SERVER_PORT " $(ColorGreen ''"${currentPort}"'')
 echo -ne "
 $(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_PUBLIC_LIST " $(display_public_status_on_or_off)
 echo -ne "
 $(ColorCyan '╠═══════════════════════════════════════════════')
 $(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_CURRENT_NJORD_RELEASE $(check_menu_script_repo)
-$(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_LOCAL_NJORD_VERSION ${mversion}
+$(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_LOCAL_NJORD_VERSION $(ColorGreen ''"${mversion}"'')
 $(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_GG_ZEROBANDWIDTH
 $(ColorCyan '║') $FUNCTION_HEADER_MENU_INFO_1
 $(ColorCyan '╚═══════════════════════════════════════════════')"
@@ -2946,6 +2950,7 @@ $(ColorCyan '╚═════════════════════�
 # Display the main server information header.
 function menu_header() {
 # Display service, Crossplay, player, firewall, and release status.
+clear
 get_current_config
 echo -ne "
 $(ColorOrange '╔══════════════════════════════════════════════════════════╗')
