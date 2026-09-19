@@ -43,10 +43,9 @@
 ####       Beta: Finished the Firewall controls.
 ####        ...: See "FIREWALL CONFIGURATION" section.
 ####
-#### LD VERSION: 2.2.6B
-####    Updated: Comments
-#### LD VERSION: 2.2.7B
-####    Updated: minor menu format fixes.
+#### LD VERSION: 2.2.6B -- Comments
+#### LD VERSION: 2.2.7B -- minor menu format fixes.
+#### LD VERSION: 2.2.8B -- minor bugs
 ####
 #### *** - Lord Du'Moss
 ####
@@ -853,7 +852,7 @@ function Install_steamcmd_client() {
                 echo "IPTables configuration not implemented."
                 ;;
             firewalld)
-                if command -v firewalld >/dev/null; then
+                if command -v firewall-cmd >/dev/null; then
                     if [ "$is_firewall_enabled" == "y" ] && [ "$get_firewall_status" == "y" ]; then
                         sftc="ste"
                         add_Valheim_server_public_ports
@@ -1328,7 +1327,7 @@ function is_any_firewall_installed() {
         fwiufw=y
         echo -ne "\n$(ColorOrange "Uncomplicated Firewall (ufw) is installed.")"
     fi
-    if command -v firewalld >/dev/null; then
+    if command -v firewall-cmd >/dev/null; then
         fwifwd=y
         echo -ne "\n$(ColorOrange "FireWALLD is installed.")"
     fi
@@ -1368,7 +1367,7 @@ function is_any_firewall_enabled() {
 
     command -v arptables >/dev/null && systemctl is-enabled arptables >/dev/null 2>&1 && fwearp=y
     command -v ebtables >/dev/null && systemctl is-enabled ebtables >/dev/null 2>&1 && fweebt=y
-    command -v firewalld >/dev/null && systemctl is-enabled firewalld >/dev/null 2>&1 && fwefwd=y
+    command -v firewall-cmd >/dev/null && systemctl is-enabled firewalld >/dev/null 2>&1 && fwefwd=y
     command -v iptables >/dev/null && systemctl is-enabled iptables >/dev/null 2>&1 && fweipt=y
     command -v ip6tables >/dev/null && systemctl is-enabled ip6tables >/dev/null 2>&1 && fweipt6=y
     command -v ufw >/dev/null && systemctl is-enabled ufw >/dev/null 2>&1 && fweufw=y
@@ -1422,7 +1421,7 @@ function get_firewall_substate(){
 function get_firewall_moreinfo(){
     if [ "${usefw}" == "y" ] ; then
         if [ "${fwbeingused}" == "firewalld" ] ; then
-            if command -v firewalld >/dev/null; then
+            if command -v firewall-cmd >/dev/null; then
                 echo "--- Raw Firewalld Global Core State ---"
                 firewall-cmd --state
                 echo "Default Zone: $(firewall-cmd --get-default-zone)"
@@ -3052,7 +3051,7 @@ $(ColorPurple '╚════════════════════�
 		case $a in
 	    1) get_firewall_status ; firewall_admin_menu ;;
 		2) get_firewall_substate ; firewall_admin_menu ;;
-		3) get_firewall_info ; firewall_admin_menu ;;
+		3) get_firewall_moreinfo ; firewall_admin_menu ;;
 		4) sftc="ste" ; add_Valheim_server_public_ports ; firewall_admin_menu ;;
 		5) sftc="ste" ; remove_Valheim_server_public_ports ; firewall_admin_menu ;;
 		6) sftc="val" ; add_Valheim_server_public_ports ; firewall_admin_menu ;;
