@@ -126,7 +126,7 @@ debugmsg="n"
 # Set Menu Version for menu display
 ###############################################################
 mversion="4.0-Thor"
-ldversion="2.2.7B"
+ldversion="2.2.6B"
 ########################################################################
 #############################Set COLOR VARS#############################
 ########################################################################
@@ -1030,8 +1030,8 @@ function nocheck_valheim_update_install() {
     sleep 1
 
     # Execute the SteamCMD update.
-    $steamexe +login anonymous +force_install_dir "${valheimInstallPath}/${worldname}" +app_update 896660 validate +exit
-
+    $steamexe +login anonymous +force_install_dir "${valheimInstallPath}/${worldname}" +app_update 896660 validate +exit +quit 2>/dev/null
+    
     tput setaf 2; echo "$ECHO_DONE"; tput setaf 9;
 }
 
@@ -1054,7 +1054,7 @@ $(ColorRed "$DRAW60")"
     # Apply the update only after confirmation.
     if [ "$confirmOfficialUpdates" == "y" ]; then
         tput setaf 2; echo "$FUNCTION_INSTALL_VALHEIM_UPDATE_APPLY_INFO"; tput setaf 9;
-        $steamexe +login anonymous +force_install_dir "${valheimInstallPath}/${worldname}" +app_update 896660 validate +exit
+        $steamexe +login anonymous +force_install_dir "${valheimInstallPath}/${worldname}" +app_update 896660 validate +exit 2>/dev/null
         chown -Rf steam:steam "${valheimInstallPath}/${worldname}"
         echo ""
     else
@@ -1074,7 +1074,8 @@ function check_apply_server_updates_beta() {
     find "/home" "/root" -wholename "*/.steam/appcache/appinfo.vdf" -exec rm -f {} +
 
     # Read the current official build identifier.
-    repoValheim=$($steamexe +login anonymous +app_info_update 1 +app_info_print 896660 +quit | grep -A10 branches | grep -A2 public | grep buildid | cut -d'"' -f4)
+    #repoValheim=$($steamexe +login anonymous +app_info_update 1 +app_info_print 896660 +quit | grep -A10 branches | grep -A2 public | grep buildid | cut -d'"' -f4)
+     repoValheim=$($steamexe +login anonymous +app_info_update 1 +app_info_print 896660 +quit 2>/dev/null | grep -A10 branches | grep -A2 public | grep buildid | cut -d'"' -f4)
     echo "Official Valheim: $repoValheim"
 
     # Read the locally installed build identifier.
@@ -1225,16 +1226,6 @@ function display_valheim_server_status() {
 ########################################################################
 
 # Display Valheim Vanilla Configuration File
-function display_start_valheim() {
-    echo ""
-    sudo cat ${valheimInstallPath}/${worldname}/start_valheim_${worldname}.sh
-    echo ""
-    echo "Returning to menu in 5 Seconds"
-    sleep 5
-}
-
-
-# Display Valheim Start Configuration
 function display_start_valheim() {
     echo ""
     sudo cat ${valheimInstallPath}/${worldname}/start_valheim_${worldname}.sh
@@ -1968,28 +1959,33 @@ function display_full_config() {
 
 # Edit the BepInEx configuration file and optionally restart the server.
 function bepinex_mod_options() {
-clear
+	clear
     nano ${valheimInstallPath}/${worldname}/BepInEx/config/BepInEx.cfg
-    echo ""
+
+	echo ""
     tput setaf 2; echo "$DRAW80" ; tput setaf 9;
-    echo "$FUNCTION_VALHEIM_PLUS_EDIT_BEPINEX_CONFIG_RESTART"
-    echo "$FUNCTION_VALHEIM_PLUS_EDIT_BEPINEX_CONFIG_RESTART_1"
+    tput setaf 2;  echo "$FUNCTION_BEPINEX_EDIT_CONFIG_SAVE_RESTART" ; tput setaf 9;
+    tput setaf 2;  echo "$FUNCTION_BEPINEX_EDIT_CONFIG_SAVE_RESTART_1" ; tput setaf 9;
     tput setaf 2; echo "$DRAW80" ; tput setaf 9;
     echo ""
-    
+
 	read -p "$PLEASE_CONFIRM" confirmRestart
 
+	#if y, then continue, else cancel
     if [ "$confirmRestart" == "y" ]; then
 		echo ""
-		echo "$FUNCTION_VALHEIM_PLUS_EDIT_BEPINEX_RESTART_SERVICE_INFO"
+		echo "$FUNCTION_BEPINEX_EDIT_RESTART_SERVICES"
 		sudo systemctl restart valheimserver_${worldname}.service
 		echo ""
 		else
-		echo "$FUNCTION_VALHEIM_PLUS_EDIT_BEPINEX_CANCEL"
-		sleep 2
-		clear
+		echo "$FUNCTION_BEPINEX_EDIT_CANCEL"
 	fi
+    sleep 2
+    clear
+
 }
+
+
 
 # Build the legacy BepInEx startup wrapper.
 function build_start_server_bepinex_configuration_file() {
@@ -2369,33 +2365,7 @@ function valheim_bepinex_update() {
     fi
 }
 
-# Edit the active BepInEx configuration and restart the service if confirmed.
-function bepinex_mod_options() {
-	clear
-    nano ${valheimInstallPath}/${worldname}/BepInEx/config/BepInEx.cfg
 
-	echo ""
-    tput setaf 2; echo "$DRAW80" ; tput setaf 9;
-    tput setaf 2;  echo "$FUNCTION_BEPINEX_EDIT_CONFIG_SAVE_RESTART" ; tput setaf 9;
-    tput setaf 2;  echo "$FUNCTION_BEPINEX_EDIT_CONFIG_SAVE_RESTART_1" ; tput setaf 9;
-    tput setaf 2; echo "$DRAW80" ; tput setaf 9;
-    echo ""
-
-	read -p "$PLEASE_CONFIRM" confirmRestart
-
-	#if y, then continue, else cancel
-    if [ "$confirmRestart" == "y" ]; then
-		echo ""
-		echo "$FUNCTION_BEPINEX_EDIT_RESTART_SERVICES"
-		sudo systemctl restart valheimserver_${worldname}.service
-		echo ""
-		else
-		echo "$FUNCTION_BEPINEX_EDIT_CANCEL"
-	fi
-    sleep 2
-    clear
-
-}
 
 # Build the current BepInEx startup wrapper.
 function build_valw_bepinex_configuration_file() {
@@ -2620,8 +2590,9 @@ function check_official_valheim_release_build() {
             if [ -z "$steamexe" ] || [ ! -f "$steamexe" ]; then
                 currentOfficialRepo="000000"
             else
-                currentOfficialRepo=$($steamexe +login anonymous +app_info_update 1 +app_info_print 896660 +quit | grep -A10 branches | grep -A2 public | grep buildid | cut -d'"' -f4)
-            fi
+                #currentOfficialRepo=$($steamexe +login anonymous +app_info_update 1 +app_info_print 896660 +quit | grep -A10 branches | grep -A2 public | grep buildid | cut -d'"' -f4)
+                currentOfficialRepo=$($steamexe +login anonymous +app_info_update 1 +app_info_print 896660 +quit 2>/dev/null | grep -A10 branches | grep -A2 public | grep buildid | cut -d'"' -f4)
+			fi
             # Save the build identifier for later menu displays.
             echo "$currentOfficialRepo" > "$official_build_file"
 
@@ -2823,7 +2794,6 @@ function set_world_server() {
         echo ""
     fi
     request99="n"
-    clear
 }
 
 
