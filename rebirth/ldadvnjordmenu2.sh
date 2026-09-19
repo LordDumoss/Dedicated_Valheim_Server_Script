@@ -58,14 +58,13 @@
 ## NOTE: If there is no /etc/os-release file please use package manager to install it.
 ###############################################################################################
 source /etc/os-release
-if [ "$1" == "" ]
-then
-	LANGUAGE=EN
-else
-	LANGUAGE=$1
-fi
+#if [ "$1" == "" ]
+#then
+#	LANGUAGE=EN
+#else
+#	LANGUAGE=$1
+#fi
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-
 # Consume the first argument only when it is a supported language.
 case "${1:-}" in
     DA|DE|DU|EN|FR|RO|RU|SE|SP)
@@ -83,7 +82,6 @@ if [[ ! -r "$LANGUAGE_CONFIG" ]]; then
     printf 'Error: language configuration not found: %s\n' "$LANGUAGE_CONFIG" >&2
     exit 1
 fi
-
 source "$LANGUAGE_CONFIG"
 
 ###############################################################
