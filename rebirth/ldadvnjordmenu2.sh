@@ -20,7 +20,7 @@
 ###############################################################################################
 ####
 #### I would like to thank Zerobandwidth and the development team
-#### this wonderfull script. :)
+#### for this wonderfull script. :)
 ####
 #### Please use the same discord for issues.
 ####
