@@ -43,10 +43,11 @@
 ####       Beta: Finished the Firewall controls.
 ####        ...: See "FIREWALL CONFIGURATION" section.
 ####
-#### LD VERSION: 2.2.6B -- Comments
-#### LD VERSION: 2.2.7B -- minor menu format fixes.
-#### LD VERSION: 2.2.8B -- minor bugs fixes
-#### LD VERSION: 2.2.9B -- enhancements
+#### LD VERSION: 2.2.6B  -- Comments
+#### LD VERSION: 2.2.7B  -- minor menu format fixes.
+#### LD VERSION: 2.2.8B  -- minor bugs
+#### LD VERSION: 2.2.9B  -- enhancements
+#### LD VERSION: 2.2.10B -- firewall/apt enhancements
 ####
 #### *** - Lord Du'Moss
 ####
@@ -82,6 +83,7 @@ if [[ ! -r "$LANGUAGE_CONFIG" ]]; then
     printf 'Error: language configuration not found: %s\n' "$LANGUAGE_CONFIG" >&2
     exit 1
 fi
+
 source "$LANGUAGE_CONFIG"
 
 ###############################################################
@@ -145,7 +147,7 @@ debugmsg="n"
 # Set Menu Version for menu display
 ###############################################################
 mversion="4.0-Thor"
-ldversion="2.2.9B"
+ldversion="2.2.10B"
 ########################################################################
 #############################Set COLOR VARS#############################
 ########################################################################
@@ -219,28 +221,39 @@ function script_check_update() {
         echo "Script update check unavailable: no Git upstream is configured."
         return 0
     fi
-    echo "1"
-    #git fetch
-	git -C "$SCRIPTPATH" fetch
+    git -C "$SCRIPTPATH" fetch --quiet
 
-    # Check if there are updates available.
-    if [ -n "$(git diff --name-only "$UPSTREAM" "$SCRIPTFILE")" ]; then
+    local script_repo
+    script_repo="$(git -C "$SCRIPTPATH" rev-parse --show-toplevel)"	
+
+#    # Check if there are updates available.
+#    if [ -n "$(git diff --name-only "$UPSTREAM" "$SCRIPTFILE")" ]; then
+    # Check whether the configured upstream contains a newer version of this file.
+    if git -C "$SCRIPTPATH" diff --quiet \
+        "$UPSTREAM".."$BRANCH" -- "$SCRIPTFILE"; then
+        echo "$GIT_ECHO_NO_UPDATES"
+    else	
         echo "$GIT_ECHO_CHECK"
         sleep 1
-        git pull --force
-        git stash
-        git checkout "$BRANCH"
-        git pull --force
+#        git pull --force
+#        git stash
+#        git checkout "$BRANCH"
+#        git pull --force
+
+        if ! git -C "$SCRIPTPATH" merge --ff-only "$UPSTREAM"; then
+            echo "Automatic update skipped because local changes or divergent history were detected." >&2
+            return 1
+        fi		
+
         echo "$GIT_ECHO_UPDATING"
         sleep 1
-        chmod +x *menu.sh
+        #chmod +x *menu.sh
+		chmod +x "$MENUSCRIPT"
         sleep 1
         # Restart the script with the same arguments
         exec "$SCRIPTNAME" "${ARGS[@]}"
         # Exit the old instance
         exit 1
-    else
-        echo "$GIT_ECHO_NO_UPDATES"
     fi
 }
 
@@ -596,14 +609,12 @@ function valheim_server_install() {
                 echo "No firewall configuration detected matching: ${fwbeingused}"
                 ;;
         esac
-    else
-        local system_fw_check
-        system_fw_check=$(systemctl is-active firewalld 2>/dev/null || systemctl is-active ufw 2>/dev/null)
-        if [ "$system_fw_check" == "active" ];
-		then
-            disable_all_firewalls
-        fi
-    fi
+		else
+			if systemctl is-active --quiet firewalld ||
+				systemctl is-active --quiet ufw; then
+					disable_all_firewalls
+		fi
+	fi
     # ========================================================================
     # END of AUTOMATED INSTALLER FIREWALL INJECTION LAYER
     # ========================================================================
@@ -804,7 +815,7 @@ function linux_server_update() {
             sudo yum-config-manager --add-repo=https://negativo17.org
         else
             # Configure repositories for newer enterprise systems.
-            sudo dnf install -y https://fedoraproject.org/${VERSION:0:1}.noarch.rpm
+            sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
             sudo dnf config-manager --add-repo=https://negativo17.org
         fi
     else
@@ -910,7 +921,11 @@ function Install_steamcmd_client() {
         esac
     else
         # Disable detected firewall services when firewall management is off.
-        [ "${is_firewall_enabled}" == "y" ] && disable_all_firewalls
+        #[ "${is_firewall_enabled}" == "y" ] && disable_all_firewalls
+         if systemctl is-active --quiet firewalld ||
+            systemctl is-active --quiet ufw; then
+             disable_all_firewalls
+         fi		
     fi
 
     tput setaf 2; echo "$ECHO_DONE"; tput setaf 9;
@@ -962,7 +977,9 @@ function backup_world_data() {
 
         # Remove backup files older than fourteen days.
         tput setaf 1; echo "$BACKUP_WORLD_CONDUCT_CLEANING"; tput setaf 9;
-        find "$backupPath/$worldname/"* -mtime +14 -type f -delete
+        #find "$backupPath/$worldname/"* -mtime +14 -type f -delete
+		find "$backupPath/$worldname" -maxdepth 1 -type f \
+			-name '*.tgz' -mtime +14 -delete		
         tput setaf 2; echo "$BACKUP_WORLD_CONDUCT_CLEANING_LOKI"; tput setaf 9;
         sleep 1
 
@@ -1060,15 +1077,29 @@ $(ColorGreen ' '"$RESTORE_WORLD_DATA_CONFIRM_1"' ') "
 
         # Copy the selected archive into the world save directory.
         tput setaf 2; echo "$RESTORE_WORLD_DATA_COPYING ${backups[selectedIndex - 1]} to ${worldpath}/${worldname}/"; tput setaf 9;
-        cp "${backups[selectedIndex - 1]}" "${worldpath}/${worldname}/"
+        #cp "${backups[selectedIndex - 1]}" "${worldpath}/${worldname}/"
+         if ! cp -- "${backups[selectedIndex - 1]}" \
+             "${worldpath}/${worldname}/${restorefile}"; then
+             echo "Unable to copy the backup archive."
+             systemctl start "valheimserver_${worldname}.service"
+             return 1
+         fi
 
         # Extract the backup and restore file ownership.
         tput setaf 2; echo "$RESTORE_WORLD_DATA_UNPACKING ${worldpath}/${restorefile}"; tput setaf 9;
         #tar xzf "${worldpath}/${worldname}/${restorefile}" --strip-components=7 --directory "${worldpath}/${worldname}/"
-		tar -xzf "${worldpath}/${worldname}/${restorefile}" \
-			-C "${worldpath}/${worldname}/"		
+		#tar -xzf "${worldpath}/${worldname}/${restorefile}" \
+		#	-C "${worldpath}/${worldname}/"		
+        if ! tar -xzf "${worldpath}/${worldname}/${restorefile}" \
+            -C "${worldpath}/${worldname}/"; then
+            echo "Unable to extract the backup archive."
+            systemctl start "valheimserver_${worldname}.service"
+			return 1
+        fi		
+		
         chown -Rf steam:steam "${worldpath}/${worldname}/"
-        rm "${worldpath}/${worldname}"/*.tgz
+        #rm "${worldpath}/${worldname}"/*.tgz
+		rm -f -- "${worldpath}/${worldname}/${restorefile}"
 
         # Start the restored world service.
         tput setaf 2; echo "$RESTORE_WORLD_DATA_STARTING_VALHEIM_SERVICES"; tput setaf 9;
@@ -1373,14 +1404,45 @@ function get_worldseed() {
 ###############    FIREWALL CONTROL SECTION START    ###################
 ########################################################################
 
+# Map the configured firewall backend to its command-line utility.
+function firewall_command_name() {
+    case "$fwbeingused" in
+        firewalld) printf '%s\n' "firewall-cmd" ;;
+        ufw)       printf '%s\n' "ufw" ;;
+        iptables)  printf '%s\n' "iptables" ;;
+        *)         return 1 ;;
+    esac
+}
+
+# Map the configured firewall service.
+function firewall_service_name() {
+    case "$fwbeingused" in
+        firewalld|ufw|iptables|ip6tables|arptables|ebtables)
+            printf '%s\n' "$fwbeingused"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 # Report whether the selected firewall utility is installed.
 function is_admin_firewall_installed() {
-    if command -v "$fwbeingused" >/dev/null; then
-        is_admin_firewall_installed=y
+    local firewall_cmd
+
+    firewall_cmd="$(firewall_command 2>/dev/null)" || {
+        is_admin_firewall_installed="unsupported"
+        printf '%s\n' "$is_admin_firewall_installed"
+        return 1
+    }
+
+    if command -v "$firewall_cmd" >/dev/null 2>&1; then
+        is_admin_firewall_installed="y"
     else
-        is_admin_firewall_installed=n
+        is_admin_firewall_installed="n"
     fi
-    echo -e '\E[32m'"$is_admin_firewall_installed"
+
+    printf '%s\n' "$is_admin_firewall_installed"
 }
 
 # Report which supported firewall utilities are installed.
@@ -1425,6 +1487,7 @@ function is_admin_firewall_enabled(){
     echo -e '\E[32m'"$is_admin_firewall_enabled "
 }
 
+
 # Report whether any supported firewall service is enabled.
 function is_any_firewall_enabled() {
     local fwearp=n fweebt=n fwefwd=n fweipt=n fweipt6=n fweufw=n
@@ -1444,6 +1507,34 @@ function is_any_firewall_enabled() {
         echo -ne "\n$(ColorOrange "No Firewall enabled.")"
     fi
 }
+
+# Report whether the selected firewall utility active.
+function is_firewall_active() {
+    local service_name
+
+    service_name="$(firewall_service_name)" || return 1
+    systemctl is-active --quiet "$service_name"
+}
+
+function is_any_firewall_active() {
+    local firewall_service
+
+    for firewall_service in \
+        arptables \
+        ebtables \
+        firewalld \
+        iptables \
+        ip6tables \
+        ufw; do
+
+        if systemctl is-active --quiet "$firewall_service"; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 
 # Return the active state of the selected firewall.
 function get_firewall_status() {
@@ -1467,7 +1558,7 @@ function get_firewall_substate(){
         local check_enabled
         check_enabled=$(systemctl is-enabled "$fwbeingused" 2>/dev/null)
         if [ "$check_enabled" == "enabled" ] ; then
-            if command -v "$fwbeingused" >/dev/null; then
+            if command -v "$(firewall_command)" >/dev/null 2>&1; then
                 get_firewall_substate=$(systemctl show -p SubState "$fwbeingused" | cut -d= -f2)
             else
                 get_firewall_substate="Error"
@@ -1556,17 +1647,25 @@ function enable_prefered_firewall(){
 }
 
 # Stop and disable all known firewall services.
-function disable_all_firewalls(){
-    for fws in "${fwsystems[@]}"
-    do
-        if command -v "$fws" >/dev/null; then
-            echo "Stopping and disabling $fws..."
-            sudo systemctl stop "$fws" 2>/dev/null
-            sudo systemctl disable "$fws" 2>/dev/null
+function disable_all_firewalls() {
+    local firewall_service
+
+    for firewall_service in \
+        arptables \
+        ebtables \
+        firewalld \
+        iptables \
+        ip6tables \
+        ufw; do
+
+        if systemctl is-active --quiet "$firewall_service" ||
+           systemctl is-enabled --quiet "$firewall_service"; then
+            echo "Stopping and disabling ${firewall_service}..."
+            sudo systemctl disable --now "$firewall_service" 2>/dev/null || true
         fi
     done
-    disable_all_firewalls="All known Firewall systems disabled."
-    echo -e '\E[32m'"$disable_all_firewalls "
+
+    echo -e '\E[32mAll known firewall systems disabled.'
     sleep 2
 }
 
@@ -1826,6 +1925,7 @@ function set_config_defaults() {
 
 # Rewrite the startup script and restart the selected world service.
 function write_config_and_restart() {
+    local restart_service="${1:-y}"
     tput setaf 1; echo "$FUNCTION_WRITE_CONFIG_RESTART_INFO"; tput setaf 9;
     sleep 1
 
@@ -1846,7 +1946,9 @@ EOF
     chmod +x "$configfile"
     echo "$ECHO_DONE"
     echo "$FUNCTION_WRITE_CONFIG_RESTART_SERVICE_INFO"
-    sudo systemctl restart valheimserver_${worldname}.service
+    if [ "$restart_service" = "y" ]; then
+        sudo systemctl restart "valheimserver_${worldname}.service"
+    fi
     echo ""
 }
 
@@ -2017,6 +2119,26 @@ function change_local_world_name() {
         return 0
     fi
 
+
+    local migration_complete="n"
+    rollback_world_migration() {
+        [ "$migration_complete" = "y" ] && return 0
+
+        if [ -d "$new_install_dir" ] && [ ! -e "$old_install_dir" ]; then
+            mv -- "$new_install_dir" "$old_install_dir" 2>/dev/null || true
+        fi
+
+        if [ -d "$new_save_dir" ] && [ ! -e "$old_save_dir" ]; then
+            mv -- "$new_save_dir" "$old_save_dir" 2>/dev/null || true
+        fi
+
+        worldname="$old_world_name"
+        echo "World migration failed. The original paths were restored where possible." >&2
+    }
+
+    trap rollback_world_migration RETURN
+
+
     # Detect whether the existing service uses BepInEx.
     if [ -f "/lib/systemd/system/${old_service}" ]; then
         if grep -Fq \
@@ -2132,8 +2254,10 @@ function change_local_world_name() {
     if ! systemctl is-active --quiet "${new_service}"; then
         echo "Warning: ${new_service} is not currently active."
         systemctl status --no-pager "${new_service}" || true
+		return 1
     fi
-
+	
+    migration_complete="y"
     tput setaf 2
     echo "World rename and migration completed successfully."
     echo "Old world: $old_world_name"
@@ -2383,7 +2507,7 @@ function set_valheim_server_vanillaOrBepinex_operations() {
     # 1. Cleanly pull live variable baselines and execute your write function
     get_current_config
     set_config_defaults
-    write_config_and_restart
+    write_config_and_restart n
 
     # Remove old Valheim Server Service file instances to prevent target locks
     [ -e /etc/systemd/system/valheimserver_${worldname}.service ] && rm -f /etc/systemd/system/valheimserver_${worldname}.service
@@ -2497,14 +2621,15 @@ function install_valheim_bepinex() {
     # cd "${valheimInstallPath}/${worldname}" || exit 1
     # rm -rf /opt/bepinexdl
 
-    [ -e start_valw_bepinex.sh ] && rm start_valw_bepinex.sh
+    #[ -e start_valw_bepinex.sh ] && rm start_valw_bepinex.sh
+	rm -f -- "${valheimInstallPath}/${worldname}/start_valw_bepinex.sh"
 
     tput setaf 2; echo "$FUNCTION_BEPINEX_INSTALL_BUILDING_NEW_BEPINEX_CONFIG"; tput setaf 9;
     build_valw_bepinex_configuration_file
 
     tput setaf 2; echo "$FUNCTION_BEPINEX_INSTALL_SETTING_STEAM_OWNERSHIP"; tput setaf 9;
-    chown -Rf steam:steam /home/steam/*
-    chmod +x start_valw_bepinex.sh
+    chown -Rf steam:steam /home/steam
+    chmod +x -- "${valheimInstallPath}/${worldname}/start_valw_bepinex.sh"
     echo ""
 
     # clear
@@ -2630,13 +2755,18 @@ function build_valw_bepinex_configuration_file() {
 # LINUX: This is the name of the Unity game executable
 # MACOS: This is the name of the game app folder, including the .app suffix
 # Resolve the BepInEx path according to the host platform.
-if command -v apt-get >/dev/null; then
-   export VALHEIM_BEP_SCRIPT="$(readlink -f "$0")"
-   export VALHEIM_BEP_PATH="$(dirname "$VALHEIM_BEP_SCRIPT")"
-   worldname=$(pwd | cut -d'/' -f5)
-elif command -v dnf >/dev/null || command -v yum >/dev/null; then
-   #export VALHEIM_BEP_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-   export VALHEIM_BEP_PATH="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+#if command -v apt-get >/dev/null; then
+#   export VALHEIM_BEP_SCRIPT="$(readlink -f "$0")"
+#   export VALHEIM_BEP_PATH="$(dirname "$VALHEIM_BEP_SCRIPT")"
+#   worldname=$(pwd | cut -d'/' -f5)
+#elif command -v dnf >/dev/null || command -v yum >/dev/null; then
+#  export VALHEIM_BEP_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+#  export VALHEIM_BEP_PATH="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+ if command -v apt-get >/dev/null ||
+    command -v dnf >/dev/null ||
+    command -v yum >/dev/null; then
+    export VALHEIM_BEP_SCRIPT="$(readlink -f "$0")"
+    export VALHEIM_BEP_PATH="$(dirname -- "$VALHEIM_BEP_SCRIPT")"
    export VALHEIM_BEP_SCRIPT="${VALHEIM_BEP_PATH}/start_valw_bepinex.sh"
    worldname="$(basename "${VALHEIM_BEP_PATH}")"
 else
@@ -2896,7 +3026,8 @@ function check_menu_script_repo() {
             "$api_url" 2>/dev/null |
         sed -nE 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' |
         head -n 1
-    ) || latestOwnerScript="unknown"
+    ) || true
+    latestOwnerScript="${latestOwnerScript:-unknown}"
 
     latestForkScript=$(
         curl --fail --silent --show-error --location \
@@ -2904,7 +3035,8 @@ function check_menu_script_repo() {
             "$api_ld_url" 2>/dev/null |
         sed -nE 's/^[[:space:]]*ldversion[[:space:]]*=[[:space:]]*["'"'"']?([^"'"'"'[:space:]]+)["'"'"']?.*$/\1/p' |
         head -n 1
-    ) || latestForkScript="unknown"
+    ) || true
+    latestForkScript="${latestForkScript:-unknown}"
 
     latestScript="${latestOwnerScript}-LD-${latestForkScript}"
 
