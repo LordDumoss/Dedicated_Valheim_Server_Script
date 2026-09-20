@@ -42,11 +42,11 @@
 ####        .U2: Fixed to run on all Linux flavors.
 ####    Removed: All ValheimPlus code, as this system is no longer maintained.
 ####      Added: Back the rename world function. Use with care.
-####       Beta: Finished the Firewall controls.
-####        ...: See "FIREWALL CONFIGURATION" section.
 #### LD VERSION: 2.2.6B  -- Comments
 #### LD VERSION: 2.2.xB  -- minor menu format fixes.
 #### LD VERSION: 2.3.0B  -- firewall/apt enhancements
+####       Beta: Finished the Firewall controls.
+####        ...: See "FIREWALL CONFIGURATION" section.
 ####
 #### *** - Lord Du'Moss
 ####
