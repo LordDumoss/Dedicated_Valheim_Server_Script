@@ -12,10 +12,12 @@
 ####
 ###############################################################################################
 ####
-####  Forked from: njordmenu.sh 4.0Thor
-#### This version: ldadvnjordmenu2.sh
+####    File name: ldadvnjordmenu2.sh
+####   LD Version: 2.3.1B
+####  Forked from: njordmenu.sh 
+#### Main Version: 4.0Thor
 ####  Modified by: Lord Du'Moss
-####      Updated: 18-SEPT-2026
+####      Updated: 20-SEPT-2026
 ####
 ###############################################################################################
 ####
@@ -40,11 +42,11 @@
 ####        .U2: Fixed to run on all Linux flavors.
 ####    Removed: All ValheimPlus code, as this system is no longer maintained.
 ####      Added: Back the rename world function. Use with care.
+####       Beta: Finished the Firewall controls.
+####        ...: See "FIREWALL CONFIGURATION" section.
 #### LD VERSION: 2.2.6B  -- Comments
 #### LD VERSION: 2.2.xB  -- minor menu format fixes.
 #### LD VERSION: 2.3.0B  -- firewall/apt enhancements
-####       Beta: Finished the Firewall controls.
-####        ...: See "FIREWALL CONFIGURATION" section.
 ####
 #### *** - Lord Du'Moss
 ####
@@ -145,7 +147,7 @@ debugmsg="n"
 # Set Menu Version for menu display
 ###############################################################
 mversion="4.0-Thor"
-ldversion="2.3.0B"
+ldversion="2.3.1B"
 ########################################################################
 #############################Set COLOR VARS#############################
 ########################################################################
@@ -4081,7 +4083,7 @@ $(ColorOrange '╠════════════════════�
 	echo -ne "
 $(ColorOrange '║') $FUNCTION_HEADER_MENU_INFO_SERVER_UFW" $(get_firewall_status)
 	echo -ne "
-$(ColorOrange '║') $FUNCTION_HEADER_MENU_INFO_SERVER_UFW_SUBSTATE -- substatus" $(get_firewall_substate)
+$(ColorOrange '║') $FUNCTION_HEADER_MENU_INFO_SERVER_UFW_SUBSTATE" $(get_firewall_substate)
 	echo -ne "
 $(ColorOrange '╠═══════════════════════════════════════════════════════════')"
 	echo -ne "
